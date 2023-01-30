@@ -233,7 +233,8 @@ def _test():
 
 
 if __name__ == '__main__':
-    get_data()
+    # get_data()
     # _find_characteristics()
     # _test()
     # _setup_directory()
+    pass
