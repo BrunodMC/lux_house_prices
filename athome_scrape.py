@@ -1,20 +1,23 @@
 import requests
-import urllib.request
-import json
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
 import os
+import pandas as pd
 
 
 # step 1: scrape website for properties for sale
 # step 2: convert links to properties advertised into database entries with the relevant info
 
-#####################################
+################################################
 ### Functions to find all relevant articles
 def extract_athomelu_entries():
     """Scrapes athome.lu, collecting the URL to every single property advertised in Luxembourg and writing them to a file.
         (took 21 minutes to run in my test)"""
+
+    # quick setup
+    _setup_directory()
+
     st_time = time.time()
     BASE_URL = "https://www.athome.lu"
 
@@ -62,7 +65,7 @@ def extract_athomelu_entries():
     file.close()
     et_time = time.time()
     print(f"Successfully wrote all relevant URLs to file with path '{filepath}'.")
-    print(f"This process took {et_time - st_time} seconds.")
+    print(f"This process took {round(et_time - st_time, 2)} seconds.")
     return
 
 def _not_in_lux(article):
@@ -96,49 +99,141 @@ def _collective_article(article, BASE_URL):
     return href_list
 
 
-#####################################
+################################################
 ### Functions to extract the actual data from the relevant articles
 
-""" TO DO:
-        1. from a property's info page, extract useful info.
-        2. 
-"""
 def get_data():
+    """Collects the data for every property in the most recent collection of URLs and saves it to CSV."""
 
+    # quick setup
+    _setup_directory()
+
+    st_time = time.time()
     # find the most up to date set of URLs
     current_filepath = os.path.dirname(os.path.abspath(__file__))
     URLs_filepath = current_filepath + '/extracted_URLs/'
     list_of_files = os.listdir(URLs_filepath)
+    # raise error if there are no files in the directory
+    if not len(list_of_files):
+        raise Exception(f'No files exist in {URLs_filepath}')
+
     file_timestamps = [int(x.split('_')[-1][:-4]) for x in list_of_files]
     target = str(max(file_timestamps))
     target_filepath = URLs_filepath + [file for file in list_of_files if target in file][0]
     
     # get the relevant information from each advert
+    data = []
     with open(target_filepath, 'r') as file:
         for url in file:
-            page = requests.get(url.strip()) ################################## put url back
-            page_soup = BeautifulSoup(page.content, 'html.parser')
-            print(page_soup.find_all('body')[0].encode('utf-8'))
+            page = requests.get(url.strip()) 
+            # check if ad still exists
+            if page.status_code != 200:
+                print(f'Something went wrong with url: {url}')
+                continue
 
-            # page = urllib.request.urlopen(url) # .request('get', url) # urllib3.connection_from_url(url). .get(url)
-            # jpage = json.load(page)
-            # print(jpage)
-            # page_soup = BeautifulSoup(page, 'lxml')
-            # test = page_soup.find_all('div', class_='block-localisation-address')
-            # print(page_soup.encode('utf-8'))
-            # print(test)
+            page_soup = BeautifulSoup(page.content, 'html.parser')
+            # the pain begins:
+            price = int(page_soup.find_all('div', class_='KeyInfoBlockStyle__Price-sc-1o1h56e-5 fpNLMn')[0].text.split(' ')[0].replace(',', ''))
             
-            # get basic info (location, type of dwelling, price) 
-            # address = page_soup.find_all("i")
-            # print(address)
-            break
+            _sentence_list = page_soup.find_all('h1', class_='KeyInfoBlockStyle__PdpTitle-sc-1o1h56e-2 ilPGib')[0].text.split(' ')
+            type_of_property = _sentence_list[0]
+            _in_index = _sentence_list.index('in')
+            locality = _sentence_list[_in_index+1]
+
+            _characteristics_block = page_soup.find_all('section', class_='feature sc-7vp35h-2-section-LayoutTheme__KeyGeneral-hbgJJa hVtovK')[0]
+            # print(_characteristics_block)
+            characteristics_dict = _scan_characteristics_block(_characteristics_block)
+
+            characteristics_dict['Property Type'] = type_of_property
+            characteristics_dict['Locality'] = locality
+
+            data.append(characteristics_dict)
+            # break
     file.close()
+
+    # turn the whole thing into a dataframe to save it as a CSV for future reference
+    df = pd.DataFrame(data)
+    csv_path = current_filepath + '/datasets/' + f'data_{target}.csv'
+    df.to_csv(csv_path, index=False, encoding='utf-8')
+
+    et_time = time.time()
+    print(f"Successfully saved data to CSV file with path '{csv_path}'.")
+    print(f"This process took {round(et_time - st_time, 2)} seconds.")
+
     return
 
+def _scan_characteristics_block(block):
+    
+    pairs = block.find_all('li', class_='feature-bloc-content-specification-content')
+    # scan through each key value pair in the block, logging them in a dictionary
+    data = {}
+    for pair in pairs:
+        key = pair.find_all('div', class_='feature-bloc-content-specification-content-name')[0].text.strip()
+        value = pair.find_all('div', class_='feature-bloc-content-specification-content-response')[0].text.strip()
+        data[key] = value
+    
+    return data
+
+
+################################################
+### Other
+def _setup_directory() -> None:
+    """Ensures required directories exist."""
+
+    current_filepath = os.path.dirname(os.path.abspath(__file__))
+    url_dir = current_filepath + '/extracted_URLs/'
+    csv_dir = current_filepath + '/datasets/'
+
+    # create directories if they do not exist
+    if not os.path.exists(url_dir):
+        os.makedirs(url_dir)
+        print(f"Directory '{url_dir}' created.")
+    
+    if not os.path.exists(csv_dir):
+        os.makedirs(csv_dir)
+        print(f"Directory '{csv_dir}' created.")
+    
+    print('Ready.\n')
+
+    return
+
+def _find_characteristics():
+    # find the most up to date set of URLs
+    current_filepath = os.path.dirname(os.path.abspath(__file__))
+    URLs_filepath = current_filepath + '/extracted_URLs/'
+    
+    target_filepath = URLs_filepath + 'URLs_20230126155023.txt'
+
+    L = []
+    with open(target_filepath, 'r') as file:
+        for i in range(1000):
+            url = file.readline()
+            page = requests.get(url.strip())
+            page_soup = BeautifulSoup(page.content, 'html.parser')
+            try:
+                _characteristics_block = page_soup.find_all('section', class_='feature sc-7vp35h-2-section-LayoutTheme__KeyGeneral-hbgJJa hVtovK')[0]
+            except:
+                print(f"Something went wrong at i = {i}")
+            else:
+                pairs = _characteristics_block.find_all('li', class_='feature-bloc-content-specification-content')
+                for pair in pairs:
+                    key = pair.find_all('div', class_='feature-bloc-content-specification-content-name')[0].text.strip()
+                    if key not in L: L.append(key)
+            
+    print(L)
+    print(len(L))
+
+def _test():
+    url = 'https://www.athome.lu/en/buy/apartment/hesperange/id-7707193.html'
+    page = requests.get(url)
+
+    print(page.status_code)
 
 
 
 
 if __name__ == '__main__':
     get_data()
-    
+    # _find_characteristics()
+    # _test()
+    # _setup_directory()
