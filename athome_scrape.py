@@ -4,6 +4,7 @@ from datetime import datetime
 import time
 import os
 import pandas as pd
+import random
 
 
 # step 1: scrape website for properties for sale
@@ -63,6 +64,16 @@ def extract_athomelu_entries():
                     file.write(PROPERTY_URL)
 
     file.close()
+    # remove duplicate URLs
+    with open(filepath, 'r') as read:
+        all_lines = set(read.readlines())
+    read.close()
+
+    with open(filepath, 'w+') as rewrite:
+        for line in all_lines:
+            rewrite.write(line)
+    rewrite.close()
+
     et_time = time.time()
     print(f"Successfully wrote all relevant URLs to file with path '{filepath}'.")
     print(f"This process took {round(et_time - st_time, 2)} seconds.")
@@ -124,31 +135,31 @@ def get_data():
     # get the relevant information from each advert
     data = []
     with open(target_filepath, 'r') as file:
-        for url in file:
+        for i, url in enumerate(file):
             page = requests.get(url.strip()) 
             # check if ad still exists
             if page.status_code != 200:
-                print(f'Something went wrong with url: {url}')
+                print(f'Something went wrong with url number {i+1}: {url}')
                 continue
 
             page_soup = BeautifulSoup(page.content, 'html.parser')
-            # the pain begins:
-            price = int(page_soup.find_all('div', class_='KeyInfoBlockStyle__Price-sc-1o1h56e-5 fpNLMn')[0].text.split(' ')[0].replace(',', ''))
-            
+            # get a couple of specific things
             _sentence_list = page_soup.find_all('h1', class_='KeyInfoBlockStyle__PdpTitle-sc-1o1h56e-2 ilPGib')[0].text.split(' ')
             type_of_property = _sentence_list[0]
             _in_index = _sentence_list.index('in')
             locality = _sentence_list[_in_index+1]
 
-            _characteristics_block = page_soup.find_all('section', class_='feature sc-7vp35h-2-section-LayoutTheme__KeyGeneral-hbgJJa hVtovK')[0]
-            # print(_characteristics_block)
+            # get everything in the characteristics block of the page
+            try:
+                _characteristics_block = page_soup.find_all('section', class_='feature sc-7vp35h-2-section-LayoutTheme__KeyGeneral-hbgJJa hVtovK')[0]
+            except:
+                print(f"URL number {i+1} might have no info.")
             characteristics_dict = _scan_characteristics_block(_characteristics_block)
 
             characteristics_dict['Property Type'] = type_of_property
             characteristics_dict['Locality'] = locality
 
             data.append(characteristics_dict)
-            # break
     file.close()
 
     # turn the whole thing into a dataframe to save it as a CSV for future reference
@@ -229,12 +240,32 @@ def _test():
 
     print(page.status_code)
 
+def _gather_subset() -> None:
+    current_filepath = os.path.dirname(os.path.abspath(__file__))
+    URLs_filepath = current_filepath + '/extracted_URLs/'
+    
+    source_filepath = URLs_filepath + 'URLs_20230126155023.txt'
 
+    with open(source_filepath, 'r') as f:
+        all_lines = list(set(f.readlines()))
+    f.close()
+
+    subset = set([all_lines[random.randint(0, len(all_lines)-1)] for _ in range(1000)])
+    
+
+    target_filepath = URLs_filepath + 'URLs_20230126156000.txt'
+    with open(target_filepath, 'w+') as f:
+        for line in subset:
+            f.write(line)
+    f.close()
+
+    return
 
 
 if __name__ == '__main__':
-    # get_data()
+    get_data()
     # _find_characteristics()
     # _test()
     # _setup_directory()
+    # _gather_subset()
     pass
