@@ -2,7 +2,8 @@ Dockerfile
 docker-compose.yaml
 requirements.txt
 extracted_URLs
-datasets
+raw_datasets
+clean_datasets
 columns.txt
 *.ipynb
 .vscode
