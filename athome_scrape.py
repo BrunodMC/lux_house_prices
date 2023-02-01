@@ -154,17 +154,18 @@ def get_data():
                 _characteristics_block = page_soup.find_all('section', class_='feature sc-7vp35h-2-section-LayoutTheme__KeyGeneral-hbgJJa hVtovK')[0]
             except:
                 print(f"URL number {i+1} might have no info.")
-            characteristics_dict = _scan_characteristics_block(_characteristics_block)
+            else:
+                characteristics_dict = _scan_characteristics_block(_characteristics_block)
 
-            characteristics_dict['Property Type'] = type_of_property
-            characteristics_dict['Locality'] = locality
+                characteristics_dict['Property Type'] = type_of_property
+                characteristics_dict['Locality'] = locality
 
-            data.append(characteristics_dict)
+                data.append(characteristics_dict)
     file.close()
 
     # turn the whole thing into a dataframe to save it as a CSV for future reference
     df = pd.DataFrame(data)
-    csv_path = current_filepath + '/datasets/' + f'data_{target}.csv'
+    csv_path = current_filepath + '/raw_datasets/' + f'data_{target}.csv'
     df.to_csv(csv_path, index=False, encoding='utf-8')
 
     et_time = time.time()
@@ -193,7 +194,7 @@ def _setup_directory() -> None:
 
     current_filepath = os.path.dirname(os.path.abspath(__file__))
     url_dir = current_filepath + '/extracted_URLs/'
-    csv_dir = current_filepath + '/datasets/'
+    csv_dir = current_filepath + '/raw_datasets/'
 
     # create directories if they do not exist
     if not os.path.exists(url_dir):
