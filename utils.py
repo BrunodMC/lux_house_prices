@@ -7,19 +7,15 @@ def _setup_directory() -> None:
     url_dir = current_filepath + '/extracted_URLs/'
     raw_csv_dir = current_filepath + '/raw_datasets/'
     clean_csv_dir = current_filepath + '/clean_datasets/'
+    models_dir = current_filepath + '/models/'
+
+    dirs = [url_dir, raw_csv_dir, clean_csv_dir, models_dir]
 
     # create directories if they do not exist
-    if not os.path.exists(url_dir):
-        os.makedirs(url_dir)
-        print(f"Directory '{url_dir}' created.")
-    
-    if not os.path.exists(raw_csv_dir):
-        os.makedirs(raw_csv_dir)
-        print(f"Directory '{raw_csv_dir}' created.")
-
-    if not os.path.exists(clean_csv_dir):
-        os.makedirs(clean_csv_dir)
-        print(f"Directory '{clean_csv_dir}' created.")
+    for dir_ in dirs:
+        if not os.path.exists(dir_):
+            os.makedirs(dir_)
+            print(f"Directory '{dir_}' created.")
     
     print('Ready.\n')
 
