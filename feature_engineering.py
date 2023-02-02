@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 import numpy as np
 
-from utils import _setup_directory
+from utils import _setup_directory, _find_file
 
 
 ################################################
@@ -15,16 +15,7 @@ def cleanup() -> None:
     _setup_directory()
 
     # select the most up to date set of raw data
-    current_filepath = os.path.dirname(os.path.abspath(__file__))
-    csv_filepath = current_filepath + '/raw_datasets/'
-    list_of_files = os.listdir(csv_filepath)
-    # raise error if there are no files in the directory
-    if not len(list_of_files):
-        raise Exception(f'No files exist in {csv_filepath}')
-
-    file_timestamps = [int(x.split('_')[-1][:-4]) for x in list_of_files]
-    target_timestamp = str(max(file_timestamps))
-    target_filepath = csv_filepath + [file for file in list_of_files if target_timestamp in file][0]
+    target_filepath, target_timestamp = _find_file('raw_datasets')
 
     # import raw data
     df = pd.read_csv(target_filepath)
@@ -146,7 +137,7 @@ def cleanup() -> None:
             df.drop(col, axis=1, inplace=True)
 
     # save the resulting dataset
-    csv_path = current_filepath + '/clean_datasets/' + f'clean_data_{target_timestamp}.csv'
+    csv_path = os.path.dirname(os.path.abspath(__file__)) + '/clean_datasets/' + f'clean_data_{target_timestamp}.csv'
     df.to_csv(csv_path, index=False, encoding='utf-8')
 
     return None

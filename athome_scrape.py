@@ -6,7 +6,7 @@ import os
 import pandas as pd
 import random
 
-from utils import _setup_directory
+from utils import _setup_directory, _find_file
 
 
 # step 1: scrape website for properties for sale
@@ -123,16 +123,7 @@ def get_data():
 
     st_time = time.time()
     # find the most up to date set of URLs
-    current_filepath = os.path.dirname(os.path.abspath(__file__))
-    URLs_filepath = current_filepath + '/extracted_URLs/'
-    list_of_files = os.listdir(URLs_filepath)
-    # raise error if there are no files in the directory
-    if not len(list_of_files):
-        raise Exception(f'No files exist in {URLs_filepath}')
-
-    file_timestamps = [int(x.split('_')[-1][:-4]) for x in list_of_files]
-    target = str(max(file_timestamps))
-    target_filepath = URLs_filepath + [file for file in list_of_files if target in file][0]
+    target_filepath, target_timestamp = _find_file('extracet_URLs')
     
     # get the relevant information from each advert
     data = []
@@ -167,7 +158,7 @@ def get_data():
 
     # turn the whole thing into a dataframe to save it as a CSV for future reference
     df = pd.DataFrame(data)
-    csv_path = current_filepath + '/raw_datasets/' + f'data_{target}.csv'
+    csv_path = os.path.dirname(os.path.abspath(__file__)) + '/raw_datasets/' + f'data_{target_timestamp}.csv'
     df.to_csv(csv_path, index=False, encoding='utf-8')
 
     et_time = time.time()
