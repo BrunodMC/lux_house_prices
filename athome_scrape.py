@@ -6,6 +6,8 @@ import os
 import pandas as pd
 import random
 
+from utils import _setup_directory
+
 
 # step 1: scrape website for properties for sale
 # step 2: convert links to properties advertised into database entries with the relevant info
@@ -189,31 +191,6 @@ def _scan_characteristics_block(block):
 
 ################################################
 ### Other
-def _setup_directory() -> None:
-    """Ensures required directories exist."""
-
-    current_filepath = os.path.dirname(os.path.abspath(__file__))
-    url_dir = current_filepath + '/extracted_URLs/'
-    raw_csv_dir = current_filepath + '/raw_datasets/'
-    clean_csv_dir = current_filepath + '/clean_datasets/'
-
-    # create directories if they do not exist
-    if not os.path.exists(url_dir):
-        os.makedirs(url_dir)
-        print(f"Directory '{url_dir}' created.")
-    
-    if not os.path.exists(raw_csv_dir):
-        os.makedirs(raw_csv_dir)
-        print(f"Directory '{raw_csv_dir}' created.")
-
-    if not os.path.exists(clean_csv_dir):
-        os.makedirs(clean_csv_dir)
-        print(f"Directory '{clean_csv_dir}' created.")
-    
-    print('Ready.\n')
-
-    return
-
 def _find_characteristics():
     # find the most up to date set of URLs
     current_filepath = os.path.dirname(os.path.abspath(__file__))
