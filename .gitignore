@@ -8,3 +8,4 @@ columns.txt
 *.ipynb
 .vscode
 .ipynb_checkpoints
+__pycache__
