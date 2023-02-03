@@ -129,7 +129,8 @@ def _collective_article(article, BASE_URL):
 ### Functions to extract the actual data from the relevant articles
 
 def get_data():
-    """Collects the data for every property in the most recent collection of URLs and saves it to CSV."""
+    """Collects the data for every property in the most recent collection of URLs and saves it to CSV.
+        (took ~20 minutes in my test)"""
 
     # quick setup
     _setup_directory()
