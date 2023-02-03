@@ -145,7 +145,7 @@ def get_data():
             page = requests.get(url.strip()) 
             # check if ad still exists
             if page.status_code != 200:
-                print(f'Something went wrong with url number {i+1}: {url}')
+                print(f'Something went wrong with url number {i+1}: {url} \tStatus code: {page.status_code}')
                 continue
 
             page_soup = BeautifulSoup(page.content, 'html.parser')
@@ -254,7 +254,7 @@ def _gather_subset() -> None:
 
 if __name__ == '__main__':
     # extract_athomelu_entries()
-    # get_data()
+    get_data()
     # _find_characteristics()
     # _test()
     # _setup_directory()
