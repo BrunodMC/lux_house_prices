@@ -124,7 +124,7 @@ def get_data():
     st_time = time.time()
     # find the most up to date set of URLs
     target_filepath, target_timestamp = _find_file('extracet_URLs')
-    
+
     # get the relevant information from each advert
     data = []
     with open(target_filepath, 'r') as file:
@@ -237,7 +237,7 @@ def _gather_subset() -> None:
 
 
 if __name__ == '__main__':
-    get_data()
+    # get_data()
     # _find_characteristics()
     # _test()
     # _setup_directory()
