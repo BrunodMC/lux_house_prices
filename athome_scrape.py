@@ -123,7 +123,7 @@ def get_data():
 
     st_time = time.time()
     # find the most up to date set of URLs
-    target_filepath, target_timestamp = _find_file('extracet_URLs')
+    target_filepath, target_timestamp = _find_file('extracted_URLs')
 
     # get the relevant information from each advert
     data = []
