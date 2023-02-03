@@ -48,6 +48,9 @@ def cleanup() -> None:
     construction_year_median = df['Year of construction'].median()
     df.loc[df['Year of construction'].isnull(), 'Year of construction'] = construction_year_median
 
+    # replace NaN values in Renovation year column with the construction year instead
+    df['Renovation year'].fillna(df['Year of construction'], inplace=True)
+
     # convert Terrace into float
     df['Terrace'] = df['Terrace'].apply(_str_to_float)
 
