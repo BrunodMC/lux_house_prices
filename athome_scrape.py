@@ -16,7 +16,7 @@ from utils import _setup_directory, _find_file
 ### Functions to find all relevant articles
 def extract_athomelu_entries():
     """Scrapes athome.lu, collecting the URL to every single property advertised in Luxembourg and writing them to a file.
-        (took 21 minutes to run in my test)"""
+        (took ~20 minutes to run in my test)"""
 
     # quick setup
     _setup_directory()
@@ -43,7 +43,10 @@ def extract_athomelu_entries():
     current_filepath = os.path.dirname(os.path.abspath(__file__))
     timestr = datetime.now().strftime("%Y%m%d%H%M%S")
     filepath = current_filepath + f"/extracted_URLs/URLs_{timestr}.txt"
+    URL_counter = 0
     with open(filepath, 'w+') as file:
+        # use a set to keep track of property ID's and ensure we don't save duplicates
+        hashset_property_id = set()
         # loop through all results pages
         for i in range(1,num_result_pages+1):
             PAGE_URL = BASE_URL + f"/en/buy?page={i}" 
@@ -55,29 +58,39 @@ def extract_athomelu_entries():
             for article in articles:
                 # first of all, check if property is in luxembourg
                 if _not_in_lux(article): continue
-                # check if "<p>: class=childrenInfos" exists
+                # next, check if property ID is already known (in the hashset)
+                href = _individual_article(article)
+                prop_id = int(''.join(filter(str.isnumeric, href.split('/')[-1])))
+                # check if it is already in the set, if so skip it
+                if prop_id in hashset_property_id:
+                    continue
+                # if not in the set, add it and proceed as normal
+                hashset_property_id.add(prop_id)
+                # check if "<p>: class=childrenInfos" exists, meaning the property is collective
                 collective = bool(article.find_all('p', class_='childrenInfos'))
                 if collective:
                     href_list = _collective_article(article, BASE_URL)
                     url_list = [BASE_URL + href + '\n' for href in href_list]
                     file.writelines(url_list)
+                    URL_counter += len(url_list)
                 else:
                     PROPERTY_URL = BASE_URL + _individual_article(article) + '\n'
                     file.write(PROPERTY_URL)
-
+                    URL_counter += 1
+                
     file.close()
-    # remove duplicate URLs
-    with open(filepath, 'r') as read:
-        all_lines = set(read.readlines())
-    read.close()
+    # # remove duplicate URLs
+    # with open(filepath, 'r') as read:
+    #     all_lines = set(read.readlines())
+    # read.close()
 
-    with open(filepath, 'w+') as rewrite:
-        for line in all_lines:
-            rewrite.write(line)
-    rewrite.close()
+    # with open(filepath, 'w+') as rewrite:
+    #     for line in all_lines:
+    #         rewrite.write(line)
+    # rewrite.close()
 
     et_time = time.time()
-    print(f"Successfully wrote all relevant URLs to file with path '{filepath}'.")
+    print(f"Found {URL_counter} relevant URLs, wrote them to file with path '{filepath}'.")
     print(f"This process took {round(et_time - st_time, 2)} seconds.")
     return
 
@@ -173,9 +186,12 @@ def _scan_characteristics_block(block):
     # scan through each key value pair in the block, logging them in a dictionary
     data = {}
     for pair in pairs:
-        key = pair.find_all('div', class_='feature-bloc-content-specification-content-name')[0].text.strip()
-        value = pair.find_all('div', class_='feature-bloc-content-specification-content-response')[0].text.strip()
-        data[key] = value
+        try:
+            key = pair.find_all('div', class_='feature-bloc-content-specification-content-name')[0].text.strip()
+            value = pair.find_all('div', class_='feature-bloc-content-specification-content-response')[0].text.strip()
+            data[key] = value
+        except:
+            continue
     
     return data
 
@@ -237,6 +253,7 @@ def _gather_subset() -> None:
 
 
 if __name__ == '__main__':
+    # extract_athomelu_entries()
     # get_data()
     # _find_characteristics()
     # _test()
