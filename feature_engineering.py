@@ -30,6 +30,23 @@ def cleanup() -> None:
     cutoff = 200000
     df.drop(df[df['Sale price'] < cutoff].index, inplace=True)
 
+
+    # define columns to keep according to how many missing values they have originally
+    # still remove 'Availability' and 'Locality' though
+    if 'Availability' in df.columns:
+        df.drop('Availability', axis=1, inplace=True)
+    if 'Locality' in df.columns:
+        df.drop('Locality', axis=1, inplace=True)
+    CUTOFF_PROP = 0.5
+    CUTOFF = len(df)*CUTOFF_PROP
+    columns_keep = [col for col in df.columns if df[col].count() > CUTOFF]
+
+
+    # fix property type by combining equivalent categories
+    df.replace(['Flat', 'Studio', 'Penthouse', 'Duplex', 'Triplex', 'Loft', 'Ground'], 'Apartment', inplace=True)
+    df.replace(['Detached', 'Terraced', 'Semi-detached', 'Villa', 'Townhouse', 'Castle', 'Farm', 'Farmhouse', 'Cottage', 'Bungalow'], 'House', inplace=True)
+    df.replace(['Retail', 'Business', 'Restaurant', 'Hotel', 'Warehouse', 'Working Farm'], 'Commercial property', inplace=True)
+
     # convert Livable surface column into float
     df['Livable surface'] = df['Livable surface'].apply(_str_to_float)
 
@@ -131,10 +148,10 @@ def cleanup() -> None:
 
     
     # drop all other columns
-    columns_keep = ['Sale price', 'Property Type', 'Livable surface', 'Land', 'Number of bedrooms', 'Year of construction', 'Renovation year', 
-        'Terrace', 'Closed parking space', 'Open parking space', 'Energy class', 'Thermal insulation class', 'Open kitchen', 
-        'Bathroom', 'Basement', 'Property\'s floor', 'Lift', 'Fitted kitchen', 'Separate kitchen', 'Restroom', 'Laundry', 
-        'Shower rooms', 'Balcony', 'Pets accepted', 'Swimming pool', 'Sauna', 'Solar panels', 'Garden', 'Fireplace', 'Attic']
+    # columns_keep = ['Sale price', 'Property Type', 'Livable surface', 'Land', 'Number of bedrooms', 'Year of construction', 'Renovation year', 
+    #     'Terrace', 'Closed parking space', 'Open parking space', 'Energy class', 'Thermal insulation class', 'Open kitchen', 
+    #     'Bathroom', 'Basement', 'Property\'s floor', 'Lift', 'Fitted kitchen', 'Separate kitchen', 'Restroom', 'Laundry', 
+    #     'Shower rooms', 'Balcony', 'Pets accepted', 'Swimming pool', 'Sauna', 'Solar panels', 'Garden', 'Fireplace', 'Attic']
     for col in df.columns:
         if col not in columns_keep:
             df.drop(col, axis=1, inplace=True)
