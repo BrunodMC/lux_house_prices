@@ -5,18 +5,21 @@ import time
 import os
 import pandas as pd
 import random
+import warnings
 
 from utils import _setup_directory, _find_file
 
 
-# step 1: scrape website for properties for sale
-# step 2: convert links to properties advertised into database entries with the relevant info
+# simpler warning formatting
+def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
+    return '%s:%s: %s: %s\n' % (filename, lineno, category.__name__, message)
+warnings.formatwarning = warning_on_one_line
 
 ################################################
 ### Functions to find all relevant articles
 def extract_athomelu_entries():
     """Scrapes athome.lu, collecting the URL to every single property advertised in Luxembourg and writing them to a file.
-        (took ~20 minutes to run in my test)"""
+        (took ~40 minutes to run for 41k alleged results (20k parsed articles and 10k saved URLs))"""
 
     # quick setup
     _setup_directory()
@@ -30,7 +33,7 @@ def extract_athomelu_entries():
     site_soup = BeautifulSoup(site.content, "html.parser")
 
     # find total number of results
-    total_results = site_soup.find_all('header', class_='block-alert')[0]
+    total_results = site_soup.find_all('header', class_='block-alert-top')[0]
     total_results = total_results.find_all('h2')[0].text.split(' ')[0]
     total_results = int(total_results.replace(',', ''))
     print(f"Total search results: {total_results}")
@@ -43,19 +46,22 @@ def extract_athomelu_entries():
     current_filepath = os.path.dirname(os.path.abspath(__file__))
     timestr = datetime.now().strftime("%Y%m%d%H%M%S")
     filepath = current_filepath + f"/extracted_URLs/URLs_{timestr}.txt"
-    URL_counter = 0
+    saved_url_counter = 0
+    parsed_article_counter = 0
+    printcounter = 200
     with open(filepath, 'w+') as file:
         # use a set to keep track of property ID's and ensure we don't save duplicates
         hashset_property_id = set()
         # loop through all results pages
         for i in range(1,num_result_pages+1):
-            PAGE_URL = BASE_URL + f"/en/buy?page={i}" 
-            page = requests.get(PAGE_URL)
+            page_url = BASE_URL + f"/en/buy?page={i}" 
+            page = requests.get(page_url)
             page_soup = BeautifulSoup(page.content, 'html.parser')
             # find all articles displayed in the current page
             articles = page_soup.find_all('article')
             # extract the useful info for the given article
             for article in articles:
+                parsed_article_counter += 1
                 # first of all, check if property is in luxembourg
                 if _not_in_lux(article): continue
                 # next, check if property ID is already known (in the hashset)
@@ -72,41 +78,39 @@ def extract_athomelu_entries():
                     href_list = _collective_article(article, BASE_URL)
                     url_list = [BASE_URL + href + '\n' for href in href_list]
                     file.writelines(url_list)
-                    URL_counter += len(url_list)
+                    saved_url_counter += len(url_list)
                 else:
-                    PROPERTY_URL = BASE_URL + _individual_article(article) + '\n'
-                    file.write(PROPERTY_URL)
-                    URL_counter += 1
+                    property_url = BASE_URL + _individual_article(article) + '\n'
+                    file.write(property_url)
+                    saved_url_counter += 1
                 
+                # print counter every ~200 articles or so
+                if (parsed_article_counter >= printcounter):
+                    if printcounter == 200:
+                        print("Number of Articles parsed (URLs collected)...")
+                    print(f"{parsed_article_counter} ({saved_url_counter})")
+                    printcounter += 200
+                
+    # close file
     file.close()
-    # # remove duplicate URLs
-    # with open(filepath, 'r') as read:
-    #     all_lines = set(read.readlines())
-    # read.close()
-
-    # with open(filepath, 'w+') as rewrite:
-    #     for line in all_lines:
-    #         rewrite.write(line)
-    # rewrite.close()
-
+    # print some info
     et_time = time.time()
-    print(f"Found {URL_counter} relevant URLs, wrote them to file with path '{filepath}'.")
-    print(f"This process took {round(et_time - st_time, 2)} seconds.")
+    print(f"Found {saved_url_counter} relevant URLs, wrote them to file with path '{filepath}'.")
+    print(f"This process took {round(et_time - st_time, 2)} seconds ({round((et_time - st_time)/60, 2)} minutes).")
     return
 
 def _not_in_lux(article):
-    """Returns True if the property is not in Luxembourg."""
+    """Returns True if the property is NOT in Luxembourg."""
 
-    locality = article.find_all('span', itemprop='addressLocality')[0].text
-    check = locality.split('(')[-1]
-    if 'FR)' in check or 'DE)' in check or 'BE)' in check:
+    country_span = article.find('span', {'class':'property-card-immotype-location-country'})
+    if country_span: # if not None, country was specified, which only happens if outside of Lux
         return True
     return False
 
 def _individual_article(article):
     """Returns a string of the href of the property."""
 
-    return article.find_all('link', itemprop='url')[0]['href']
+    return article.find('link', itemprop='url')['href']
 
 def _collective_article(article, BASE_URL):
     """Returns a list of href strings corresponding to each property included in the collective."""
@@ -136,38 +140,50 @@ def get_data():
     _setup_directory()
 
     st_time = time.time()
+    batch_st_time = st_time
     # find the most up to date set of URLs
     target_filepath, target_timestamp = _find_file('extracted_URLs')
 
     # get the relevant information from each advert
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'}
     data = []
+    counter = 0
+    print('Adverts parsed (time per batch of 200)...')
     with open(target_filepath, 'r') as file:
         for i, url in enumerate(file):
-            page = requests.get(url.strip()) 
+            counter += 1
+            page = requests.get(url.strip(), headers=headers) 
             # check if ad still exists
             if page.status_code != 200:
-                print(f'Something went wrong with url number {i+1}: {url} \tStatus code: {page.status_code}')
+                warnings.warn(f'\nSomething went wrong with url number {i+1}: {url} \tStatus code: {page.status_code}')
+                print('continuing...')
                 continue
 
             page_soup = BeautifulSoup(page.content, 'html.parser')
             # get a couple of specific things
-            _sentence_list = page_soup.find_all('h1', class_='KeyInfoBlockStyle__PdpTitle-sc-1o1h56e-2 ilPGib')[0].text.split(' ')
-            type_of_property = _sentence_list[0]
-            _in_index = _sentence_list.index('in')
-            locality = _sentence_list[_in_index+1]
+            property_title_span = page_soup.find('span', class_='property-card-immotype-title')
+            property_title_children = property_title_span.findChildren('span')
+            type_of_property = property_title_children[0].text.strip()
+            locality = property_title_children[-1].text.strip()
 
             # get everything in the characteristics block of the page
             try:
-                _characteristics_block = page_soup.find_all('section', class_='feature sc-7vp35h-2-section-LayoutTheme__KeyGeneral-hbgJJa hVtovK')[0]
+                _characteristics_container_div = page_soup.find('div', class_='characteristics-container')
+                characteristics_dict = _scan_characteristics_block(_characteristics_container_div)
             except:
                 print(f"URL number {i+1} might have no info.")
             else:
-                characteristics_dict = _scan_characteristics_block(_characteristics_block)
-
                 characteristics_dict['Property Type'] = type_of_property
                 characteristics_dict['Locality'] = locality
 
                 data.append(characteristics_dict)
+
+            # progress print, as usual
+            if counter % 200 == 0:
+                batch_et_time = time.time()
+                print(counter, f"\t({round(batch_et_time - batch_st_time, 2)} s)")
+                batch_st_time = batch_et_time
+
     file.close()
 
     # turn the whole thing into a dataframe to save it as a CSV for future reference
@@ -181,24 +197,23 @@ def get_data():
 
     return
 
-def _scan_characteristics_block(block):
-    
-    pairs = block.find_all('li', class_='feature-bloc-content-specification-content')
-    # scan through each key value pair in the block, logging them in a dictionary
+def _scan_characteristics_block(container):
+
+    blocks = container.find_all('div', class_='characteristics-block')
     data = {}
-    for pair in pairs:
-        try:
-            key = pair.find_all('div', class_='feature-bloc-content-specification-content-name')[0].text.strip()
-            value = pair.find_all('div', class_='feature-bloc-content-specification-content-response')[0].text.strip()
-            data[key] = value
-        except:
-            continue
+    # scan through each block of characteristics logging data in a dictionary
+    for block in blocks:
+        block_direct_children = block.findChildren('div', recursive=False)
+        for child in block_direct_children[1:]:
+            label = child.find('span', class_='characteristics-item-label').text.strip()
+            value = child.find('span', class_='characteristics-item-value').text.strip()
+            data[label] = value
     
     return data
 
 
 ################################################
-### Other
+### Test code
 def _find_characteristics():
     # find the most up to date set of URLs
     current_filepath = os.path.dirname(os.path.abspath(__file__))
